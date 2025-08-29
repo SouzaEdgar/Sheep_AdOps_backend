@@ -1,8 +1,6 @@
-from fastapi import APIRouter, Form
+from fastapi import APIRouter
 from pydantic import BaseModel
 from services.url_services import process_urls_async
-
-import re
 
 router = APIRouter()
 

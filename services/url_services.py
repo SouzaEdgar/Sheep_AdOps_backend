@@ -5,35 +5,45 @@ from utils import functions as adops
 client: httpx.AsyncClient | None = None
 semaforo = asyncio.Semaphore(10)
 
-async def init_client():
-    global client
-    client = httpx.AsyncClient(follow_redirects=True, timeout=15.0)
+# async def init_client():
+#     global client
+#     client = httpx.AsyncClient(follow_redirects=True, timeout=15.0)
 
-async def close_client():
-    global client
-    if client:
-        await client.aclose()
-        client = None
+# async def close_client():
+#     global client
+#     if client:
+#         await client.aclose()
+#         client = None
 
+# ===== Criação lazy do client ===== #
+async def get_client():
+    global client
+    if client is None:
+        client = httpx.AsyncClient(follow_redirects=True, timeout=10.0)
+    return client
+
+# ===== Requisição assincrona por URL ===== #
 async def get_response_async(url):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
                       " AppleWebKit/537.36 (KHTML, like Gecko)"
                       " Chrome/115.0 Safari/537.36"
     }
-    global client
     async with semaforo:
         try:
-            response = await client.get(url, headers=headers)
+            cli = await get_client()
+            response = await cli.get(url, headers=headers)
             return response
         except httpx.RequestError as e:
             return e
 
+# ===== Processamento de URLs ===== #
 async def process_urls_async(urls, params):
     tarefas = []
     resultados = []
     urls_validas = []
 
+    # --- Separar URLs validas de invalidas --- #
     for url in urls:
         if adops.valid_url(url):
             tarefas.append(get_response_async(url))
@@ -45,11 +55,11 @@ async def process_urls_async(urls, params):
                 "params": [],
                 "status": "Erro: URL inválida"
             })
-    try: # tratamento de erro - toda exceção gera resultado
-        responses = await asyncio.gather(*tarefas)
-    except Exception as e:
-        return [{"position": len(resultados)+1, "url": "ERRO", "params": [], "status": str(e)}]
 
+    # --- Executar tarefas simultanes (requisições) --- #
+    responses = await asyncio.gather(*tarefas)
+
+    # --- Montar Resultados --- #
     for i, resp in enumerate(responses, start=len(resultados) + 1):
         if isinstance(resp, httpx.Response):
             # --- Parametros encontrados --- #
