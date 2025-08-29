@@ -6,32 +6,16 @@ import re
 
 router = APIRouter()
 
-class ResultRequest(BaseModel):
-    url: str
-    parameter: str = ""
+# ===== Modelo de Request ===== #
+class VerificarRequest(BaseModel):
+    urls: list[str]
+    parametros: list[str] = []
 
 # ===== Rota de Verificação (levar resultados) ===== #
 @router.post("/verificar")
-async def verificar_urls(
-    url: str = Form(...), 
-    parameter: str = Form("")
-):
-    # --- URLS --- #
-    urls = []
-    for linha in url.splitlines():
-        if linha.strip():
-            urls.append(linha.strip())
-    
-    # --- Parametros --- #
-    params = []
-    for p in re.split(r"[;\n,]+", parameter):
-        if p.strip():
-            params.append(p.strip())
-    
+async def verificar_urls(data: VerificarRequest):
     # --- Processar URLs --- #
-    resultados = await process_urls_async(urls, params)
-
-    # --- JSON --- #
+    resultados = await process_urls_async(data.urls, data.parametros)
     return {
         "resultados": resultados
     }

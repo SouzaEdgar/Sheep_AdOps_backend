@@ -13,14 +13,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# ===== Rotas ===== #
-app.include_router(main_routes.router)
-
 # ===== CORS (habilitar) ===== #
+origins = [
+    "https://souzaedgar.github.io/Sheep_AdOps_frontend",
+    "http://localhost:5500"
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://souzaedgar.github.io/Sheep_AdOps_frontend/"],  # localhost ou front
+    #allow_origins="https://souzaedgar.github.io/Sheep_AdOps_frontend",
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ===== Rotas ===== #
+app.include_router(main_routes.router)

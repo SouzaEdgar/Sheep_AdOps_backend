@@ -36,7 +36,7 @@ async def process_urls_async(urls, params):
 
     for url in urls:
         if adops.valid_url(url):
-            tarefas.valid_url(url)
+            tarefas.append(get_response_async(url))
             urls_validas.append(url)
         else:
             resultados.append({
@@ -71,5 +71,5 @@ async def process_urls_async(urls, params):
                 "status": f"Erro: {resp}"
             })
 
-        return resultados
+    return resultados
 
