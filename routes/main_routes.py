@@ -14,6 +14,4 @@ class VerificarRequest(BaseModel):
 async def verificar_urls(data: VerificarRequest):
     # --- Processar URLs --- #
     resultados = await process_urls_async(data.urls, data.parametros)
-    return {
-        "resultados": resultados
-    }
+    return {"resultados": resultados}

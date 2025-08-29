@@ -6,7 +6,11 @@
   "routes": [
     {
       "src": "/verificar",
-      "methods": ["POST"],
+      "methods": ["POST", "OPTIONS"],
+      "dest": "app.py"
+    },
+    {
+      "src": "/(.*)",
       "dest": "app.py"
     }
   ]
