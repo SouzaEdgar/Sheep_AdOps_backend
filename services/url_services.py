@@ -45,8 +45,10 @@ async def process_urls_async(urls, params):
                 "params": [],
                 "status": "Erro: URL inválida"
             })
-    
-    responses = await asyncio.gather(*tarefas)
+    try: # tratamento de erro - toda exceção gera resultado
+        responses = await asyncio.gather(*tarefas)
+    except Exception as e:
+        return [{"position": len(resultados)+1, "url": "ERRO", "params": [], "status": str(e)}]
 
     for i, resp in enumerate(responses, start=len(resultados) + 1):
         if isinstance(resp, httpx.Response):
