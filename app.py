@@ -20,8 +20,8 @@ origins = [
 ]
 app.add_middleware(
     CORSMiddleware,
-    #allow_origins="https://souzaedgar.github.io/Sheep_AdOps_frontend",
-    allow_origins=origins,
+    allow_origins="https://souzaedgar.github.io/Sheep_AdOps_frontend",
+    #allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
