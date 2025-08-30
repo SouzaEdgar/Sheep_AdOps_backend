@@ -3,7 +3,8 @@ import asyncio
 from utils import functions as adops
 
 client: httpx.AsyncClient | None = None
-semaforo = asyncio.Semaphore(10)
+semaforo = asyncio.Semaphore(5)
+MAX_RETRIES = 3
 
 # async def init_client():
 #     global client
@@ -19,7 +20,7 @@ semaforo = asyncio.Semaphore(10)
 async def get_client():
     global client
     if client is None:
-        client = httpx.AsyncClient(follow_redirects=True, timeout=10.0)
+        client = httpx.AsyncClient(follow_redirects=True, timeout=15.0)
     return client
 
 # ===== Requisição assincrona por URL ===== #
@@ -30,12 +31,16 @@ async def get_response_async(url):
                       " Chrome/115.0 Safari/537.36"
     }
     async with semaforo:
-        try:
-            cli = await get_client()
-            response = await cli.get(url, headers=headers)
-            return response
-        except httpx.RequestError as e:
-            return e
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                cli = await get_client()
+                response = await cli.get(url, headers=headers)
+                return response
+            except httpx.RequestError as e:
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(0.5 * attempt) # realizar backoff incremental
+                else:
+                    return e
 
 # ===== Processamento de URLs ===== #
 async def process_urls_async(urls, params):
@@ -57,10 +62,14 @@ async def process_urls_async(urls, params):
             })
 
     # --- Executar tarefas simultanes (requisições) --- #
-    responses = await asyncio.gather(*tarefas)
+    #responses = await asyncio.gather(*tarefas)
 
     # --- Montar Resultados --- #
-    for i, resp in enumerate(responses, start=len(resultados) + 1):
+    for i, future in enumerate(asyncio.as_completed(tarefas), start=len(resultados) + 1):
+        resp = await future
+        idx_url = i - len(resultados) - 1
+        url_atual = urls_validas[idx_url]
+
         if isinstance(resp, httpx.Response):
             # --- Parametros encontrados --- #
             parametros = [{
@@ -78,8 +87,8 @@ async def process_urls_async(urls, params):
             # --- Formar Resultados com Erro --- #
             resultados.append({
                 "position": i,
-                "url": urls_validas[i - len(resultados) - 1],
-                "params": "",
+                "url": url_atual,
+                "params": [],
                 "status": f"Erro: {resp}"
             })
 
