@@ -1,20 +1,11 @@
 import httpx
 import asyncio
+import json
 from utils import functions as adops
 
 client: httpx.AsyncClient | None = None
 semaforo = asyncio.Semaphore(5)
-MAX_RETRIES = 3
-
-# async def init_client():
-#     global client
-#     client = httpx.AsyncClient(follow_redirects=True, timeout=15.0)
-
-# async def close_client():
-#     global client
-#     if client:
-#         await client.aclose()
-#         client = None
+MAX_RETRIES = 2
 
 # ===== Criação lazy do client ===== #
 async def get_client():
@@ -45,30 +36,26 @@ async def get_response_async(url):
 # ===== Processamento de URLs ===== #
 async def process_urls_async(urls, params):
     tarefas = []
-    resultados = []
     urls_validas = []
 
-    # --- Separar URLs validas de invalidas --- #
+    # --- URLs validas/invalidas --- #
     for url in urls:
         if adops.valid_url(url):
             tarefas.append(get_response_async(url))
             urls_validas.append(url)
         else:
-            resultados.append({
-                "position": len(resultados) + 1,
+            resultado = {
+                "position": len(urls_validas) + 1,
                 "url": url,
                 "params": [],
                 "status": "Erro: URL inválida"
-            })
+            }
+            yield json.dumps(resultado)
 
-    # --- Executar tarefas simultanes (requisições) --- #
-    #responses = await asyncio.gather(*tarefas)
-
-    # --- Montar Resultados --- #
+    # --- Montar Resultados e enviar conforme chegam--- #
     for i, future in enumerate(asyncio.as_completed(tarefas), start=len(resultados) + 1):
         resp = await future
-        idx_url = i - len(resultados) - 1
-        url_atual = urls_validas[idx_url]
+        url_atual = urls_validas[i - 1]
 
         if isinstance(resp, httpx.Response):
             # --- Parametros encontrados --- #
@@ -77,20 +64,20 @@ async def process_urls_async(urls, params):
                 "valor": v
             } for k, v in adops.parameters_search(str(resp.url), params)]
             # --- Formar Resultados (geral) --- #
-            resultados.append({
+            resultados = {
                 "position": i,
                 "url": str(resp.url),
                 "params": parametros,
                 "status": resp.status_code
-            })
+            }
         else:
             # --- Formar Resultados com Erro --- #
-            resultados.append({
+            resultados = {
                 "position": i,
                 "url": url_atual,
                 "params": [],
                 "status": f"Erro: {resp}"
-            })
+            }
 
-    return resultados
+    yield json.dumps(resultado)
 
