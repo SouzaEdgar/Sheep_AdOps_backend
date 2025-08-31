@@ -1,25 +1,60 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse
 from pydantic import BaseModel
-from services.url_services import process_urls_async
+from services.url_services import process_urls_stream
+import json
+import asyncio
+from typing import List
 
 router = APIRouter()
 
-# ===== Modelo de Request ===== #
 class VerificarRequest(BaseModel):
-    urls: list[str]
-    parametros: list[str] = []
+    urls: List[str]
+    parametros: List[str] = []
 
 MAX_URLS = 120
-# ===== Rota de Verificação (SSE) ===== #
+
+# ===== Rota Verificar ===== #
 @router.post("/verificar")
 async def verificar_urls(request: Request, data: VerificarRequest):
-    urls = data.urls[:MAX_URLS]
-    parametros = data.parametros
+    urls = (data.urls or [])[:MAX_URLS]
+    parametros = data.parametros or []
 
-    # --- Processar URLs --- #
-    async def event_stream():
-        async for resultado in process_urls_async(urls, parametros):
-            yield f"data: {resultado}\n\n"
-    
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    if not urls:
+        # --- Devolve rápido se vazio --- #
+        return PlainTextResponse("", status_code=204, headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*")
+        })
+
+    async def gen():
+        # --- Cabeçalhos de “anti-buffering” em alguns proxies --- #
+        yield ""
+
+        pos = 0
+        last_ping = asyncio.get_event_loop().time()
+
+        async for resultado in process_urls_stream(urls, parametros):
+            pos += 1
+            line = json.dumps({
+                "position": pos,
+                **resultado
+            }, ensure_ascii=False)
+            yield line + "\n"
+
+            # keep-alive a cada ~5s para evitar idle timeout em provedores
+            now = asyncio.get_event_loop().time()
+            if now - last_ping > 5:
+                yield ':\n'  # comentário no NDJSON/SSE-style, mantém conexão
+                last_ping = now
+
+        # --- marcador de fim --- #
+        yield '{"done": true}\n'
+
+    headers = {
+        "Cache-Control": "no-store, no-transform",
+        "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+        "Access-Control-Allow-Credentials": "true",
+        # dica para alguns CDNs
+        "X-Content-Type-Options": "nosniff"
+    }
+    return StreamingResponse(gen(), media_type="application/x-ndjson", headers=headers)
