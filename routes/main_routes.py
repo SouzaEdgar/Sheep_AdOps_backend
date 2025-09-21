@@ -15,7 +15,7 @@ class VerificarRequest(BaseModel):
 MAX_URLS = 120
 
 # ===== Rota Verificar ===== #
-@router.post("/verificar")
+@router.get("/verificar")
 async def verificar_urls(request: Request, data: VerificarRequest):
     urls = (data.urls or [])[:MAX_URLS]
     parametros = data.parametros or []
