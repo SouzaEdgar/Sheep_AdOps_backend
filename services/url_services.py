@@ -6,9 +6,9 @@ from typing import AsyncGenerator, Dict, Any, List, Tuple, Union
 client: httpx.AsyncClient | None = None
 
 # ===== Ajuste de concorrência (para Vercel) ===== #
-semaforo = asyncio.Semaphore(6)
-MAX_RETRIES = 2
-TIMEOUT = httpx.Timeout(15.0)
+semaforo = asyncio.Semaphore(3)
+MAX_RETRIES = 1
+TIMEOUT = httpx.Timeout(8.0)
 
 async def get_client() -> httpx.AsyncClient:
     global client
