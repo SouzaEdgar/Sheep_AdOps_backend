@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from pydantic import BaseModel
 from services.url_services import process_urls_stream
@@ -27,28 +27,34 @@ async def verificar_urls(request: Request, data: VerificarRequest):
         })
 
     async def gen():
+        # --- Cabeçalhos de “anti-buffering” em alguns proxies --- #
+        yield ""
+
         pos = 0
         last_ping = asyncio.get_event_loop().time()
 
         async for resultado in process_urls_stream(urls, parametros):
             pos += 1
-            yield json.dumps({"position": pos, **resultado}, ensure_ascii=False) + "\n"
+            line = json.dumps({
+                "position": pos,
+                **resultado
+            }, ensure_ascii=False)
+            yield line + "\n"
 
-            # keep-alive a cada ~5s para não fechar a conexão no Vercel
+            # keep-alive a cada ~5s para evitar idle timeout em provedores
             now = asyncio.get_event_loop().time()
             if now - last_ping > 5:
-                yield ":\n"
+                yield ':\n'  # comentário no NDJSON/SSE-style, mantém conexão
                 last_ping = now
 
-        # --- Marcador de fim --- #
+        # --- marcador de fim --- #
         yield '{"done": true}\n'
 
     headers = {
-        "Cache-Control": "no-store",
+        "Cache-Control": "no-store, no-transform",
         "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
         "Access-Control-Allow-Credentials": "true",
-        "Content-Type": "application/x-ndjson; charset=utf-8",
-        "Connection": "keep-alive",
-        "Transfer-Encoding": "chunked",
+        # dica para alguns CDNs
+        "X-Content-Type-Options": "nosniff"
     }
     return StreamingResponse(gen(), media_type="application/x-ndjson", headers=headers)

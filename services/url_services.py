@@ -3,17 +3,23 @@ import asyncio
 from utils import functions as adops
 from typing import AsyncGenerator, Dict, Any, List, Tuple, Union
 
+client: httpx.AsyncClient | None = None
+
+# ===== Ajuste de concorrência (para Vercel) ===== #
 semaforo = asyncio.Semaphore(6)
 MAX_RETRIES = 2
 TIMEOUT = httpx.Timeout(15.0)
 
 async def get_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(follow_redirects=True, timeout=TIMEOUT)
+    global client
+    if client is None:
+        client = httpx.AsyncClient(follow_redirects=True, timeout=TIMEOUT)
+    return client
 
 async def fetch_once(url: str, headers: Dict[str, str]) -> Union[httpx.Response, Exception]:
     try:
-        async with await get_client() as cli:
-            return await cli.get(url, headers=headers)
+        cli = await get_client()
+        return await cli.get(url, headers=headers)
     except Exception as e:
         return e
 
@@ -31,17 +37,29 @@ async def get_response_async(url: str) -> Union[httpx.Response, Exception]:
             if isinstance(resp, httpx.Response):
                 return resp
             if attempt < MAX_RETRIES:
-                await asyncio.sleep(0.5 * attempt)
+                await asyncio.sleep(0.5 * attempt)  # backoff
         return resp  # Exception depois do último retry
 
 async def process_urls_stream(urls: List[str], params: List[str]) -> AsyncGenerator[Dict[str, Any], None]:
+    # ========== #
+    # Gera um dict por resultado:
+    # { "url": "...", "params": [ {param, valor}... ], "status": 200 }
+    # ========== #
+
+    # ===== Produz imediatamente as inválidas ===== #
     validas: List[str] = []
     for url in urls:
         if adops.valid_url(url):
             validas.append(url)
         else:
-            yield {"url": url, "params": [], "status": "Erro: URL inválida"}
+            yield {
+                "url": url,
+                "params": [],
+                "status": "Erro: URL inválida"
+            }
 
+    # ===== Dispara as válidas em paralelo (semáforo) ===== #
+    #    mapeando futures -> url para associar corretamente
     tasks: List[Tuple[str, "asyncio.Task[Union[httpx.Response, Exception]]"]] = []
     loop = asyncio.get_event_loop()
     for u in validas:
@@ -50,20 +68,33 @@ async def process_urls_stream(urls: List[str], params: List[str]) -> AsyncGenera
     if not tasks:
         return
 
+    # ===== Entrega na ordem em que forem concluindo ===== #
+    for u, fut in tasks:
+        fut  # só para mypy feliz
+
     for fut in asyncio.as_completed([t for _, t in tasks]):
+        # descobrir qual URL pertence a esse future
         url_atual = None
         for u, t in tasks:
             if t is fut:
                 url_atual = u
                 break
-        resp = await fut
 
+        resp = await fut
         if isinstance(resp, httpx.Response):
             encontrados = [
                 {"param": k, "valor": v}
                 for k, v in adops.parameters_search(str(resp.url), params)
             ]
-            yield {"url": str(resp.url), "params": encontrados, "status": resp.status_code}
+            yield {
+                "url": str(resp.url),
+                "params": encontrados,
+                "status": resp.status_code
+            }
         else:
-            yield {"url": url_atual or "", "params": [], "status": f"Erro: {resp}"}
+            yield {
+                "url": url_atual or "",
+                "params": [],
+                "status": f"Erro: {resp}"
+            }
 
