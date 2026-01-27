@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse, parse_qs
 
 # ===== Principais ===== #
 def valid_url(url):
@@ -6,9 +7,14 @@ def valid_url(url):
     return bool(regex.match(url))
 
 def parameters_search(url, parameters: list):
-    found_params = []
-    for x in parameters:
-        match = re.findall(rf"(?:[?&])([^=&#]*{re.escape(x)}[^=&#]*)=([^&#]*)", url)
-        found_params.extend(match)
-    return found_params
+    parsed = urlparse(url)
+    queries = parse_qs(parsed.query)
+    found = []
+
+    for param in parameters:
+        if param in queries:
+            for val in queries[param]:
+                found.append((param, val))
+    return found
+
 
