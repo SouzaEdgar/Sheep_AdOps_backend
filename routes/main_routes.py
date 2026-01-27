@@ -28,7 +28,7 @@ async def verificar_urls(request: Request, data: VerificarRequest):
 
     async def gen():
         # --- Cabeçalhos de “anti-buffering” em alguns proxies --- #
-        yield ""
+        yield ": " + (" " * 1024) + "\n" # ---> Enviar 1024 bytes de dados para 'enganar' o buffer do Chrome
 
         pos = 0
         last_ping = asyncio.get_event_loop().time()
