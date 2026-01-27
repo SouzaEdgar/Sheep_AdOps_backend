@@ -28,24 +28,13 @@ async def verificar_urls(request: Request, data: VerificarRequest):
 
     async def gen():
         # --- Cabeçalhos de “anti-buffering” em alguns proxies --- #
-        yield ": " + (" " * 1024) + "\n" # ---> Enviar 1024 bytes de dados para 'enganar' o buffer do Chrome
+        yield ": " + (" " * 2048) + "\n" # ---> Enviar 2048 bytes de dados para 'enganar' o buffer do Chrome
 
         pos = 0
-        last_ping = asyncio.get_event_loop().time()
-
         async for resultado in process_urls_stream(urls, parametros):
             pos += 1
-            line = json.dumps({
-                "position": pos,
-                **resultado
-            }, ensure_ascii=False)
-            yield line + "\n"
-
-            # keep-alive a cada ~5s para evitar idle timeout em provedores
-            now = asyncio.get_event_loop().time()
-            if now - last_ping > 5:
-                yield ':\n'  # comentário no NDJSON/SSE-style, mantém conexão
-                last_ping = now
+            # --- Toda linha vai terminar com "\n" --- #
+            yield json.dumps({"position": pos, **resultado}, ensure_ascii=False) + "\n"
 
         # --- marcador de fim --- #
         yield '{"done": true}\n'
