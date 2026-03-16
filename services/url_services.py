@@ -3,26 +3,9 @@ import asyncio
 from utils import functions as adops
 from typing import AsyncGenerator, Dict, Any, List, Tuple, Union
 
-client: httpx.AsyncClient | None = None
-
 # ===== Ajuste de concorrência (para Vercel) ===== #
-#semaforo = asyncio.Semaphore(3) # tratar posteriormente
-MAX_RETRIES = 1
 TIMEOUT = httpx.Timeout(8.0)
 LIMITS = httpx.Limits(max_keepalive_connections=5, max_connections=20)
-
-async def get_client() -> httpx.AsyncClient:
-    global client
-    if client is None:
-        client = httpx.AsyncClient(follow_redirects=True, timeout=TIMEOUT)
-    return client
-
-async def fetch_once(url: str, headers: Dict[str, str]) -> Union[httpx.Response, Exception]:
-    try:
-        cli = await get_client()
-        return await cli.get(url, headers=headers)
-    except Exception as e:
-        return e
 
 async def get_response_async(client: httpx.AsyncClient, url: str, semaforo: asyncio.Semaphore) -> Tuple[str, Union[httpx.Response, Exception]]:
     headers = {
@@ -33,14 +16,6 @@ async def get_response_async(client: httpx.AsyncClient, url: str, semaforo: asyn
         )
     }
     async with semaforo:
-        ### Testar nova solução, evitar confusão de escopo ###
-        # for attempt in range(1, MAX_RETRIES + 1):
-        #     resp = await fetch_once(url, headers)
-        #     if isinstance(resp, httpx.Response):
-        #         return resp
-        #     if attempt < MAX_RETRIES:
-        #         await asyncio.sleep(0.5 * attempt)  # backoff
-        # return resp  # Exception depois do último retry
         try:
             resp = await client.get(url, headers=headers, follow_redirects=True)
             return url, resp

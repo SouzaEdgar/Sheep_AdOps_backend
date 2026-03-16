@@ -22,9 +22,7 @@ async def verificar_urls(request: Request, data: VerificarRequest):
 
     if not urls:
         # --- Devolve rápido se vazio --- #
-        return PlainTextResponse("", status_code=204, headers={
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*")
-        })
+        return PlainTextResponse("", status_code=204)
 
     async def gen():
         # --- Cabeçalhos de “anti-buffering” em alguns proxies --- #
@@ -39,11 +37,4 @@ async def verificar_urls(request: Request, data: VerificarRequest):
         # --- marcador de fim --- #
         yield '{"done": true}\n'
 
-    headers = {
-        "Cache-Control": "no-store, no-transform",
-        "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
-        "Access-Control-Allow-Credentials": "true",
-        # dica para alguns CDNs
-        "X-Content-Type-Options": "nosniff"
-    }
-    return StreamingResponse(gen(), media_type="application/x-ndjson", headers=headers)
+    return StreamingResponse(gen(), media_type="application/x-ndjson", headers={"Cache-Control": "no-store, no-transform"})
