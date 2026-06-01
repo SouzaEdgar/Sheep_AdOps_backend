@@ -2,9 +2,6 @@
   
 API assíncrona desenvolvida para automatizar e otimizar os processos de QA em operações AdOps.
 
-O projeto nasceu originalmente como um script Python simples focado em testar URLs individuais e validar seus códigos de status HTTP. 
-Com a evolução das necessidades, o script foi transformado em uma aplicação completa com interface gráfica em Flask e, posteriormente, arquitetado para o modelo atual: um ecossistema onde este backend atua como uma API robusta desenvolvida em FastAPI.
-
 O front-end da aplicação foi separado e possui deploy independente através do GitHub Pages, consumindo os endpoints em tempo real.
 https://souzaedgar.github.io/AdOps_Helper/
 
