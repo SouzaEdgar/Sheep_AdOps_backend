@@ -46,7 +46,7 @@ O endpoint retorna um stream de dados onde cada linha representa o resultado do 
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/Sheep_AdOps_backend.git
+git clone https://github.com/SouzaEdgar/AdOps_Helper_API.git
 cd Sheep_AdOps_backend
 ```
 
